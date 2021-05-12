@@ -1,8 +1,8 @@
 
 Set-Location $PSScriptRoot
 
-$dnspod_id = "234851"
-$dnspod_token = "f4c3d32c5f5e62ca3e82080f70a5b194"
+$dnspod_id = "235111"
+$dnspod_token = "439655f3fdd62d5b3bbe1b1b9cf167c6"
 $dnspod_domain_name = "lvhang.site"
 $dnspod_record_name = "home"
 
@@ -25,8 +25,7 @@ function End($isSuccess) {
     exit
 }
 
-function UpdateRecord($rid) {
-
+function UpdateRecordDnns($rid) {
     AddLog("调用dnspod ddns api")
 
     $ddns_resp = curl -X POST https://dnsapi.cn/Record.Ddns -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$rid&sub_domain=$dnspod_record_name&record_line=%E9%BB%98%E8%AE%A4" | ConvertFrom-Json
@@ -42,6 +41,7 @@ function UpdateRecord($rid) {
         End($false)
     }
 }
+
 
 AddLog("开始执行，$(Get-Date)")
 
@@ -111,7 +111,7 @@ if ($record_A_id -ne "") {
     AddLog("当前dnspod中 $dnspod_record_name A记录的IP为: $dns_A_ip")
 
     if ($dns_A_ip -ne $host_ipv4) {
-        UpdateRecord($record_A_id)
+        UpdateRecordDnns($record_A_id)
     }
     else {
         AddLog("当前主机ip与dns ip相同:$dns_A_ip,无需更新")
@@ -121,31 +121,37 @@ if ($record_A_id -ne "") {
 }
 
 
-
 #若获取到了record_AAAA_id，开始处理ipv6记录
 if ($record_AAAA_id -ne "") {
 
+    #获取本机的公网v6 ip地址
+    $host_ipv6 = Invoke-RestMethod http://v6.ipv6-test.com/api/myip.php?json | Select-Object -ExpandProperty address
     #获取当前AAAA记录的ip
     $current_dns_info = curl -X POST https://dnsapi.cn/Record.Info -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_AAAA_id" | ConvertFrom-Json
     $dns_AAAA_ip = $current_dns_info.record.value
+    AddLog("当前dnspod中 $dnspod_record_name AAAA记录的IP为: $dns_AAAA_ip")
 
-    #由于ipv6可能包含多个ip,所以先获取 dns ipv6 然后再检查该ip是否存在于本机ip
-    $local_ips = [System.Net.Dns]::GetHostAddresses($ComputerName)
-    $is_local_contails_dnsip = $false;
 
-    foreach ($lip in $local_ips) {
-        if ($lip.IPAddressToString -eq $dns_AAAA_ip) {
-            $is_local_contails_dnsip = $true
+
+    
+    if ($dns_AAAA_ip -ne $host_ipv6) {
+        AddLog("调用dnspod modify api")
+
+        $ddns_resp = curl -X POST https://dnsapi.cn/Record.Modify -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_AAAA_id&sub_domain=$dnspod_record_name&value=$host_ipv6&record_type=AAAA&record_line=%E9%BB%98%E8%AE%A4" | ConvertFrom-Json
+
+        #检查结果
+        if ($ddns_resp.status.code -eq "1") {
+            AddLog("modify调用返回消息:{0}" -f $ddns_resp.status.message)
+            AddLog("modify设置ip地址:{0}" -f $ddns_resp.record.value)
+        }
+        else {
+            AddLog($ddns_resp.status.code)
+            AddLog($ddns_resp.status.message)
+            End($false)
         }
     }
-
-    AddLog("当前dnspod中 $dnspod_record_name AAAA记录的IP为: $dns_AAAA_ip")
-    
-    if ( -not $is_local_contails_dnsip) {
-        UpdateRecord($record_AAAA_id)
-    }
     else {
-        AddLog("当前主机ipv6地址中包含dnsip:$dns_AAAA_ip,无需更新")
+        AddLog("当前主机ipv6与dnsip相同:$dns_AAAA_ip,无需更新")
         AddLog("当前时间:{0}" -f $(Get-Date))
     }
 
