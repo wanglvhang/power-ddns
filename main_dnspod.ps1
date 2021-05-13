@@ -8,7 +8,7 @@ $dnspod_record_name = "subdomain"
 
 $dnspod_idtoken = "$dnspod_id,$dnspod_token"
 
-$log_file_name = "logs_{0}.txt" -f (Get-Date -Format "yyyyMMddHH" )
+$log_file_name = "logs_{0}.txt" -f (Get-Date -Format "yyyyMMdd" )
 
 function AddLog ($log_string) {
     Write-Host $log_string
@@ -113,8 +113,7 @@ if ($record_A_id -ne "") {
         UpdateRecordDnns($record_A_id)
     }
     else {
-        AddLog("当前主机ip与dns ip相同:$dns_A_ip,无需更新")
-        AddLog("当前时间:{0}" -f $(Get-Date))
+        AddLog("当前主机ip与dns ip相同:$host_ipv4,无需更新")
     }
 
 }
@@ -148,8 +147,7 @@ if ($record_AAAA_id -ne "") {
         }
     }
     else {
-        AddLog("当前主机ipv6与dnsip相同:$dns_AAAA_ip,无需更新")
-        AddLog("当前时间:{0}" -f $(Get-Date))
+        AddLog("当前主机ipv6与dnsip相同:$host_ipv6,无需更新")
     }
 
 }
