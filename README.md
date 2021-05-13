@@ -4,7 +4,7 @@
 主要功能：  
 1)自动获取domain id 和 record_id  
 2)ipv4使用 record.ddns 接口 ipv6使用 record.modify 接口  
-3)ip重复检查，频繁调用修改接口  
+3)ip重复检查，避免频繁调用修改接口  
 4)输出日志  
 
 使用：  
