@@ -1,10 +1,10 @@
 
 Set-Location $PSScriptRoot
 
-$dnspod_id = "235111"
-$dnspod_token = "439655f3fdd62d5b3bbe1b1b9cf167c6"
-$dnspod_domain_name = "lvhang.site"
-$dnspod_record_name = "home"
+$dnspod_id = "123456"
+$dnspod_token = "439655flksfjgdaffapoefjcf167c6"
+$dnspod_domain_name = "xxxxx.cn"
+$dnspod_record_name = "subdomain"
 
 $dnspod_idtoken = "$dnspod_id,$dnspod_token"
 
@@ -42,8 +42,7 @@ function UpdateRecordDnns($rid) {
     }
 }
 
-
-AddLog("开始执行，$(Get-Date)")
+AddLog("===================开始执行，$(Get-Date)===================")
 
 #设置domain_id与record_id
 $domain_id = ""
@@ -130,8 +129,6 @@ if ($record_AAAA_id -ne "") {
     $current_dns_info = curl -X POST https://dnsapi.cn/Record.Info -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_AAAA_id" | ConvertFrom-Json
     $dns_AAAA_ip = $current_dns_info.record.value
     AddLog("当前dnspod中 $dnspod_record_name AAAA记录的IP为: $dns_AAAA_ip")
-
-
 
     
     if ($dns_AAAA_ip -ne $host_ipv6) {
