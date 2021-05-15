@@ -9,10 +9,16 @@ $dnspod_record_name = "subdomain"
 $dnspod_idtoken = "$dnspod_id,$dnspod_token"
 
 $log_file_name = "logs_{0}.txt" -f (Get-Date -Format "yyyyMMdd" )
+$change_log_file_name = "change_logs_{0}.txt" -f (Get-Date -Format "yyyyMM" )
 
 function AddLog ($log_string) {
     Write-Host $log_string
     Add-Content -Encoding utf8 $log_file_name $log_string
+}
+
+function AddChangeLog ($new_address) {
+     $change_log_string = "$(Get-Date) 新ip设置：$new_address"
+    Add-Content -Encoding utf8 $change_log_file_name $change_log_string
 }
 
 function End($isSuccess) {
@@ -25,24 +31,8 @@ function End($isSuccess) {
     exit
 }
 
-function UpdateRecordDnns($rid) {
-    AddLog("调用dnspod ddns api")
 
-    $ddns_resp = curl -X POST https://dnsapi.cn/Record.Ddns -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$rid&sub_domain=$dnspod_record_name&record_line=%E9%BB%98%E8%AE%A4" | ConvertFrom-Json
-
-    #检查结果
-    if ($ddns_resp.status.code -eq "1") {
-        AddLog("ddns调用返回消息:{0}" -f $ddns_resp.status.message)
-        AddLog("ddns设置ip地址:{0}" -f $ddns_resp.record.value)
-    }
-    else {
-        AddLog($ddns_resp.status.code)
-        AddLog($ddns_resp.status.message)
-        End($false)
-    }
-}
-
-AddLog("===================开始执行，$(Get-Date)===================")
+AddLog("==========================开始执行，$(Get-Date)=============================")
 
 #设置domain_id与record_id
 $domain_id = ""
@@ -110,7 +100,21 @@ if ($record_A_id -ne "") {
     AddLog("当前dnspod中 $dnspod_record_name A记录的IP为: $dns_A_ip")
 
     if ($dns_A_ip -ne $host_ipv4) {
-        UpdateRecordDnns($record_A_id)
+        AddLog("调用dnspod ddns api")
+
+        $ddns_resp = curl -X POST https://dnsapi.cn/Record.Ddns -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_A_id&sub_domain=$dnspod_record_name&record_line=%E9%BB%98%E8%AE%A4" | ConvertFrom-Json
+    
+        #检查结果
+        if ($ddns_resp.status.code -eq "1") {
+            AddLog("ddns调用返回消息:{0}" -f $ddns_resp.status.message)
+            AddLog("ddns设置ip地址:{0}" -f $ddns_resp.record.value)
+            AddChangeLog($ddns_resp.record.value)
+        }
+        else {
+            AddLog($ddns_resp.status.code)
+            AddLog($ddns_resp.status.message)
+            End($false)
+        }
     }
     else {
         AddLog("当前主机ip与dns ip相同:$host_ipv4,无需更新")
@@ -129,6 +133,8 @@ if ($record_AAAA_id -ne "") {
     $dns_AAAA_ip = $current_dns_info.record.value
     AddLog("当前dnspod中 $dnspod_record_name AAAA记录的IP为: $dns_AAAA_ip")
 
+
+
     
     if ($dns_AAAA_ip -ne $host_ipv6) {
         AddLog("调用dnspod modify api")
@@ -139,6 +145,7 @@ if ($record_AAAA_id -ne "") {
         if ($ddns_resp.status.code -eq "1") {
             AddLog("modify调用返回消息:{0}" -f $ddns_resp.status.message)
             AddLog("modify设置ip地址:{0}" -f $ddns_resp.record.value)
+            AddChangeLog($ddns_resp.record.value)
         }
         else {
             AddLog($ddns_resp.status.code)
