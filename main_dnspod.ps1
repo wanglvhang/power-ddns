@@ -5,6 +5,7 @@ $dnspod_id = "123456"
 $dnspod_token = "439655flksfjgdaffapoefjcf167c6"
 $dnspod_domain_name = "xxxxx.cn"
 $dnspod_record_name = "subdomain"
+$net_adapter_name = "以太网"
 
 $dnspod_idtoken = "$dnspod_id,$dnspod_token"
 
@@ -93,8 +94,18 @@ AddLog("AAAA记录：record_id:$record_AAAA_id")
 if ($record_A_id -ne "") {
 
     #获取本机的公网v4 ip地址
-    $host_ipv4 = Invoke-RestMethod http://v4.ipv6-test.com/api/myip.php?json | Select-Object -ExpandProperty address
+    $host_ipv4 =""
+    try {
+        $host_ipv4 = Invoke-RestMethod https://api.ipify.org/?format=json | Select-Object -ExpandProperty ip
+    }
+    catch [System.SystemException]{
+        AddLog("获取公网IPv4失败。错误消息：")
+        AddLog($_.Exception.Message)
+        End($false)
+    }
+
     #获取当前A记录的ip
+    AddLog("当前主机的ipv4地址为: $host_ipv4")
     $current_dns_info = curl -X POST https://dnsapi.cn/Record.Info -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_A_id" | ConvertFrom-Json
     $dns_A_ip = $current_dns_info.record.value
     AddLog("当前dnspod中 $dnspod_record_name A记录的IP为: $dns_A_ip")
@@ -127,13 +138,24 @@ if ($record_A_id -ne "") {
 if ($record_AAAA_id -ne "") {
 
     #获取本机的公网v6 ip地址
-    $host_ipv6 = Invoke-RestMethod http://v6.ipv6-test.com/api/myip.php?json | Select-Object -ExpandProperty address
+    $host_ipv6 = ""
+    try {
+        $host_ipv6 = Invoke-RestMethod http://v6.ipv6-test.com/api/myip.php?json | Select-Object -ExpandProperty address
+    }
+    catch [System.SystemException]{
+         AddLog("获取公网IPv6失败。错误消息：")
+         AddLog($_.Exception.Message)
+         AddLog("尝试重启网卡 Get-NetAdapter -Name '$net_adapter_name' | Restart-NetAdapter")
+         Get-NetAdapter -Name $net_adapter_name | Restart-NetAdapter
+         AddLog("网卡重启完毕")
+        End($false)
+    }
+
     #获取当前AAAA记录的ip
+    AddLog("当前主机的ipv6地址为: $host_ipv6")
     $current_dns_info = curl -X POST https://dnsapi.cn/Record.Info -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_AAAA_id" | ConvertFrom-Json
     $dns_AAAA_ip = $current_dns_info.record.value
     AddLog("当前dnspod中 $dnspod_record_name AAAA记录的IP为: $dns_AAAA_ip")
-
-
 
     
     if ($dns_AAAA_ip -ne $host_ipv6) {
