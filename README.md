@@ -1,5 +1,15 @@
 # power-ddns
 
+## 2023年1月16日 更新
+
+添加了在linux(Ubuntu22.04)上测试通过的脚本 dnspod-ddns-ipv6-linux.ps1， 该脚本支持多个配置多个子域名，仅支持ipv6. 在linux上安装powershell 后便可运行。[安装文档](https://learn.microsoft.com/zh-cn/powershell/scripting/install/install-ubuntu?view=powershell-7.2)
+
+部署：  
+运行crontab -e, 在其中添加如下的一行内容便可没十分钟运行一次。
+
+*/10 * * * * pwsh /home/leon/ddns_argo_lvhang_wang.ps1
+
+## windows版
 一个用于更新dnspod ddns的powershell脚本，支持ipv4和ipv6。  
 主要功能：  
 1)自动获取domain id 和 record_id  
