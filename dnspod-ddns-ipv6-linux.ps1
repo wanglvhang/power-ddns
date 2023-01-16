@@ -113,7 +113,7 @@ foreach($AAAA_record in $AAAA_records){
         #检查结果
         if ($ddns_resp.status.code -eq "1") {
             AddLog("ddns 调用返回消息:{0}" -f $ddns_resp.status.message)
-            AddLog("ddns 记录名:{0}" -f $ddns_resp.status.name)
+            AddLog("ddns 记录名:{0}" -f $ddns_resp.record.name)
             AddLog("ddns 设置ip地址:{0}" -f $ddns_resp.record.value)
             AddChangeLog($ddns_resp.record.value)
         }
