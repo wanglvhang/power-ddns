@@ -2,11 +2,11 @@
 
 $dnspod_id = "123456"
 $dnspod_token = "439655flksfjgdaffapoefjcf167c6"
-$dnspod_domain_name = "xxxxx.cn"
-$dnspod_record_name = "subdomain"
+$dnspod_domain_name = "xxxx.cn"
+$dnspod_record_names = "ftp","www" #支持多个子域名批量处理
+
 
 $dnspod_idtoken = "$dnspod_id,$dnspod_token"
-
 $log_file_name = "ddns_logs_{0}.txt" -f (Get-Date -Format "yyyyMMdd" )
 $change_log_file_name = "ddns_change_logs_{0}.txt" -f (Get-Date -Format "yyyyMM" )
 
@@ -35,8 +35,6 @@ AddLog("==========================开始执行，$(Get-Date)====================
 
 #设置domain_id与record_id
 $domain_id = ""
-$record_A_id = ""
-$record_AAAA_id = ""
 
 #获取 domain_id
 $domain_resp = curl -X POST https://dnsapi.cn/Domain.List -d "login_token=$dnspod_idtoken&format=json" | ConvertFrom-Json
@@ -55,6 +53,9 @@ foreach ($domain in $domain_resp.domains) {
     }
 }
 
+#显示获取的domain_id
+AddLog("domain_id:$domain_id")
+
 if ($domain_id -eq "") {
     AddLog("无法找到你配置的域名 $dnspod_domain_name 对应的domain_id,请检查你的配置")
     End($false)
@@ -64,58 +65,55 @@ if ($domain_id -eq "") {
 #获取 record_id
 $record_resp = curl -X POST https://dnsapi.cn/Record.List -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id" | ConvertFrom-Json
 
+$AAAA_records = New-Object System.Collections.ArrayList
+
 foreach ($record in $record_resp.records) {
-    if ($record.name -eq $dnspod_record_name) {
-        if ($record.type -eq "A") {
-            $record_A_id = $record.id
-        }
+    if ($record.name -in $dnspod_record_names) {
         if ($record.type -eq "AAAA") {
-            $record_AAAA_id = $record.id
+            $AAAA_records.Add($record)
+            AddLog("获取$($record.name)的recordid:$($record.id)")
         }
     }
 }
 
-
-if ($record_AAAA_id -eq "" ) {
-    AddLog("无法找到你配置的记录名 $dnspod_record_name 对应的 AAAA 记录record_id,请检查你的配置")
+if ($AAAA_records.Count -eq 0 ) {
+    AddLog("无法找到你配置的记录名 $dnspod_record_names 中为 AAAA 记录的record_id,请检查你的配置")
     End($false)
 }
 
 
-#显示获取的domain_id和record_id
-AddLog("domain_id:$domain_id")
-AddLog("A记录:record_id:$record_A_id")
-AddLog("AAAA记录:record_id:$record_AAAA_id")
-
-
-#若获取到了record_AAAA_id，开始处理ipv6记录
-if ($record_AAAA_id -ne "") {
-
-    #获取本机的公网v6 ip地址
-    $host_ipv6 = ""
-    try {
-        $host_ipv6 = Invoke-RestMethod http://v6.ipv6-test.com/api/myip.php?json | Select-Object -ExpandProperty address
-    }
-    catch [System.SystemException]{
-        AddLog($_.Exception.Message)
-        End($false)
-    }
-
-    #获取当前AAAA记录的ip
+#获取本机的公网v6 ip地址
+$host_ipv6 = ""
+try {
+    $host_ipv6 = Invoke-RestMethod http://v6.ipv6-test.com/api/myip.php?json | Select-Object -ExpandProperty address
     AddLog("当前主机的ipv6地址为: $host_ipv6")
-    $current_dns_info = curl -X POST https://dnsapi.cn/Record.Info -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_AAAA_id" | ConvertFrom-Json
+}
+catch [System.SystemException]{
+    AddLog("获取ipv6地址出错$($_.Exception.Message)")
+    End($false)
+}
+
+AddLog("-------------------更新AAAA记录ip--------------------")
+
+foreach($AAAA_record in $AAAA_records){
+
+    AddLog("AAAA记录:$($AAAA_record.name),record_id:$($AAAA_record.id)")
+    
+    #获取当前AAAA记录的ip
+    $current_dns_info = curl -X POST https://dnsapi.cn/Record.Info -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$($AAAA_record.id)" | ConvertFrom-Json
     $dns_AAAA_ip = $current_dns_info.record.value
-    AddLog("当前dnspod中 $dnspod_record_name AAAA记录的IP为: $dns_AAAA_ip")
+    AddLog("当前dnspod中$($AAAA_record.name)的AAAA记录的IP为: $dns_AAAA_ip")
 
     #若当前AAAAip与获取ipv6地址不同则更新ip
     if ($dns_AAAA_ip -ne $host_ipv6) {
         AddLog("调用dnspod ddns api")
 
-        $ddns_resp = curl -X POST https://dnsapi.cn/Record.Ddns -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$record_AAAA_id&sub_domain=$dnspod_record_name&value=$host_ipv6&record_type=AAAA&record_line=%E9%BB%98%E8%AE%A4" | ConvertFrom-Json
+        $ddns_resp = curl -X POST https://dnsapi.cn/Record.Ddns -d "login_token=$dnspod_idtoken&format=json&domain_id=$domain_id&record_id=$($AAAA_record.id)&sub_domain=$($AAAA_record.name)&value=$host_ipv6&record_type=AAAA&record_line=%E9%BB%98%E8%AE%A4" | ConvertFrom-Json
 
         #检查结果
         if ($ddns_resp.status.code -eq "1") {
             AddLog("ddns 调用返回消息:{0}" -f $ddns_resp.status.message)
+            AddLog("ddns 记录名:{0}" -f $ddns_resp.status.name)
             AddLog("ddns 设置ip地址:{0}" -f $ddns_resp.record.value)
             AddChangeLog($ddns_resp.record.value)
         }
@@ -129,7 +127,8 @@ if ($record_AAAA_id -ne "") {
         AddLog("当前主机ipv6与dnsip相同:$host_ipv6,无需更新")
     }
 
-}
+    AddLog("---------------------------------------")
 
+}
 
 End($true)
