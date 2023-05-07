@@ -6,7 +6,7 @@
 
 部署：  
 运行crontab -e, 在其中添加如下的一行内容便可每十分钟运行一次。  
-`*/10 * * * * pwsh /home/leon/ddns_argo_lvhang_wang.ps1`
+`*/10 * * * * pwsh /home/leon/ddns_dnspod.ps1`
 
 ## windows版
 一个用于更新dnspod ddns的powershell脚本，支持ipv4和ipv6。  
